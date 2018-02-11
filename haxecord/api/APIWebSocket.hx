@@ -43,7 +43,7 @@ typedef ReadyPackage = {
 typedef TypingPackage = {
 	var channel_id:String;
 	var user_id:String;
-	var timestamp:String;
+	var timestamp:Int;
 }
 
 /**
@@ -81,13 +81,18 @@ class APIWebSocket
 		};
 		// handle messages
 		websocket.onMessage = function(msg:WebSocketMessage):Void {
+			var response:BaseResponse = null;
 			try {
-				var payload = msg.getJson();
-				var response:BaseResponse = payload;
+				response = msg.getJson();
+			} catch ( source:Dynamic ) {
+				trace('error encountered parsing message: ${msg.data}, $source\n\n');
+				return;
+			}
+			try {
 				if (response.s != null) heartbeatSequence = response.s;
 				handleResponse(response);
 			} catch ( source:Dynamic ) {
-				trace('error encountered parsing message: ${msg.data}, $source\n\n');
+				trace('error encountered handling response: ${response}, $source\n\n');
 			}
 		};
 		// not sure what to do on error, just print it for now
@@ -196,12 +201,12 @@ class APIWebSocket
 			} else if (BaseChannel.isVoiceChannel(data)) {
 				var guild:Guild = client.getGuild(BaseChannel.getGuildID(data));
 				var voiceChannel:VoiceChannel = new VoiceChannel(guild, data);
-				guild.voiceChannels.push(voiceChannel);
+				if (guild != null) guild.voiceChannels.push(voiceChannel);
 				channel = voiceChannel;
 			} else {
 				var guild:Guild = client.getGuild(BaseChannel.getGuildID(data));
 				var textChannel:Channel = new Channel (guild, data);
-				guild.channels.push(textChannel);
+				if (guild != null) guild.channels.push(textChannel);
 				channel = textChannel;
 			}
 			for (listener in listeners) { listener.onChannelCreate(channel); }
@@ -380,7 +385,7 @@ class APIWebSocket
 			var typing:TypingPackage = data;
 			var channel:Channel = client.getChannel(typing.channel_id);
 			var timestamp:DateTime = null;
-			if (typing.timestamp != null) timestamp = DateTime.fromString(typing.timestamp);
+			if (typing.timestamp != null) timestamp = DateTime.fromFloat(typing.timestamp);
 			if (channel != null) {
 				var member:Member = channel.guild.getMember(typing.user_id);
 				if (member != null) {
